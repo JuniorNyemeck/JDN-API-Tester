@@ -1,0 +1,1444 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>JDN - API Tester </title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link rel="icon" href="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%230a0a0a'/%3E%3Crect x='8' y='8' width='20' height='20' fill='%23ffffff' rx='2'/%3E%3Crect x='36' y='8' width='20' height='20' fill='%23ffffff' rx='2'/%3E%3Crect x='8' y='36' width='20' height='20' fill='%23246b35' rx='2'/%3E%3Crect x='36' y='36' width='20' height='20' fill='%23ffffff' rx='2'/%3E%3C/svg%3E">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --white:   #f5f3ef;
+      --black:   #0a0a0a;
+      --ink:     #1a1a1a;
+      --muted:   #888;
+      --border:  #d4d0c8;
+      --bg2:     #f0ede8;
+      --accent:  #1a6b3c;
+      --danger:  #c0392b;
+      --mono: 'IBM Plex Mono', monospace;
+      --display: 'Bebas Neue', sans-serif;
+    }
+
+    html, body { height: 100%; overflow: hidden; font-family: var(--mono); font-size: 14px; color: var(--ink); background: var(--white); }
+
+    body { display: grid; grid-template-rows: 58px 30px 1fr; }
+
+    /* Topbar */
+    .topbar {
+      background: var(--black);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 0 20px;
+      flex-shrink: 0;
+    }
+
+    .brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+    .bmark { width: 28px; height: 28px; border: 1.5px solid #fff; display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 4px; }
+    .bmark span { background: #fff; border-radius: 1px; }
+    .bmark span:nth-child(3) { background: var(--accent); }
+    .bname { font-family: var(--display); font-size: 1rem; letter-spacing: 0.14em; color: #fff; }
+
+    .env-selector { display: flex; gap: 4px; background: rgba(255,255,255,0.1); padding: 4px; border-radius: 4px; }
+    .env-btn { padding: 4px 12px; background: none; border: none; font-family: var(--mono); font-size: 0.7rem; font-weight: 500; color: rgba(255,255,255,0.5); cursor: pointer; border-radius: 3px; }
+    .env-btn.active { background: var(--accent); color: #fff; }
+    .env-btn:hover:not(.active) { background: rgba(255,255,255,0.1); color: #fff; }
+
+    .url-row { flex: 1; display: flex; align-items: stretch; border: 1.5px solid rgba(255,255,255,0.13); min-width: 0; }
+
+    #methodSel {
+      background: var(--accent); color: #fff; border: none;
+      border-right: 1.5px solid rgba(255,255,255,0.13);
+      padding: 0 14px; font-family: var(--mono); font-size: 0.8rem; font-weight: 600;
+      letter-spacing: 0.08em; cursor: pointer; outline: none;
+      min-width: 90px; text-align: center;
+    }
+
+    #urlInput {
+      flex: 1; background: rgba(255,255,255,0.06); color: #fff;
+      border: none; padding: 0 16px; font-family: var(--mono); font-size: 0.85rem; outline: none;
+    }
+    #urlInput::placeholder { color: rgba(255,255,255,0.22); }
+
+    .top-actions { display: flex; gap: 8px; flex-shrink: 0; }
+    .top-btn { background: rgba(255,255,255,0.08); border: none; padding: 0 16px; color: #fff; font-family: var(--mono); font-size: 0.7rem; cursor: pointer; transition: background 0.2s; display: flex; align-items: center; gap: 6px; }
+    .top-btn:hover { background: var(--accent); }
+
+    .send-btn {
+      background: #fff; color: var(--black); border: none; padding: 0 22px;
+      font-family: var(--display); font-size: 1rem; letter-spacing: 0.14em;
+      cursor: pointer; display: flex; align-items: center; gap: 8px;
+      position: relative; overflow: hidden;
+    }
+    .send-btn::before { content: ''; position: absolute; inset: 0; background: var(--accent); transform: translateX(-101%); transition: transform 0.32s ease; }
+    .send-btn:hover::before { transform: translateX(0); }
+    .send-btn > * { position: relative; z-index: 1; }
+    .send-btn:disabled { opacity: 0.5; cursor: default; }
+    .send-spin { display: none; width: 16px; height: 16px; border: 2px solid rgba(0,0,0,0.2); border-top-color: var(--black); border-radius: 50%; animation: spin 0.6s linear infinite; }
+    .send-btn.loading .send-lbl, .send-btn.loading .send-arr { display: none; }
+    .send-btn.loading .send-spin { display: block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* URL preview */
+    .url-preview {
+      background: rgba(10,10,10,0.95); border-top: 1px solid rgba(255,255,255,0.05);
+      padding: 0 20px; display: flex; align-items: center; gap: 14px;
+      font-size: 0.7rem; white-space: nowrap; overflow: hidden;
+    }
+    .prev-method { color: var(--accent); font-weight: 600; flex-shrink: 0; }
+    .prev-url { color: rgba(255,255,255,0.35); overflow: hidden; text-overflow: ellipsis; }
+
+    /* Workspace - retour à la disposition originale mais avec sidebar à gauche */
+    .workspace { display: flex; overflow: hidden; }
+
+    /* Sidebar réduite pour l'historique/collections */
+    .sidebar {
+      width: 260px;
+      background: var(--bg2);
+      border-right: 1.5px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+    .sidebar-header {
+      padding: 12px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      gap: 8px;
+    }
+    .sidebar-header input {
+      flex: 1;
+      padding: 6px 10px;
+      border: 1px solid var(--border);
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      background: var(--white);
+      outline: none;
+    }
+    .sidebar-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+    }
+    .sidebar-tab {
+      flex: 1;
+      padding: 8px;
+      background: none;
+      border: none;
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: var(--muted);
+      cursor: pointer;
+    }
+    .sidebar-tab.active {
+      background: var(--white);
+      color: var(--ink);
+      border-bottom: 2px solid var(--accent);
+    }
+    .sidebar-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+    }
+    .history-item, .collection-item {
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      font-size: 0.7rem;
+    }
+    .history-item:hover, .collection-item:hover { background: rgba(0,0,0,0.05); }
+    .history-method {
+      display: inline-block;
+      padding: 2px 6px;
+      font-size: 0.55rem;
+      font-weight: 600;
+      border-radius: 3px;
+      margin-right: 8px;
+    }
+    .method-GET { background: #2980b9; color: #fff; }
+    .method-POST { background: var(--accent); color: #fff; }
+    .method-PUT { background: #e67e22; color: #fff; }
+    .method-DELETE { background: var(--danger); color: #fff; }
+    .history-url { color: var(--muted); font-size: 0.6rem; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .collection-name { font-weight: 600; }
+    .collection-request { margin-left: 12px; padding: 4px 0; font-size: 0.65rem; color: var(--muted); cursor: pointer; }
+    .collection-request:hover { color: var(--accent); }
+
+    /* Panneau principal de requête - comme dans l'original */
+    .req-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--white);
+    }
+
+    .tab-nav {
+      display: flex;
+      border-bottom: 1.5px solid var(--border);
+      flex-shrink: 0;
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 12px 2px;
+      background: none;
+      border: none;
+      border-right: 1px solid var(--border);
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+    }
+    .tab-btn:last-child { border-right: none; }
+    .tab-btn.active { background: var(--black); color: #fff; }
+    .tbadge { font-size: 0.55rem; opacity: 0.7; }
+
+    .tab-pane {
+      display: none;
+      flex: 1;
+      overflow-y: auto;
+      flex-direction: column;
+    }
+    .tab-pane.active { display: flex; }
+
+    .ti {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      flex: 1;
+    }
+
+    /* KV Tables */
+    .kv-table { border: 1.5px solid var(--border); }
+    .kv-head {
+      display: grid;
+      grid-template-columns: 30px 1fr 1fr 32px;
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+    }
+    .kv-head span {
+      padding: 8px 12px;
+      font-size: 0.58rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      border-right: 1px solid var(--border);
+    }
+    .kv-head span:last-child { border-right: none; }
+    .kv-row {
+      display: grid;
+      grid-template-columns: 30px 1fr 1fr 32px;
+      border-bottom: 1px solid var(--border);
+      align-items: stretch;
+    }
+    .kv-row:last-child { border-bottom: none; }
+    .kv-chk {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-right: 1px solid var(--border);
+    }
+    .kv-chk input { width: 14px; height: 14px; accent-color: var(--accent); cursor: pointer; }
+    .kv-inp {
+      width: 100%;
+      padding: 10px 12px;
+      background: transparent;
+      border: none;
+      border-right: 1px solid var(--border);
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      outline: none;
+    }
+    .kv-inp:focus { background: rgba(26,107,60,0.04); }
+    .kv-del {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: none;
+      border: none;
+      border-left: 1px solid var(--border);
+      color: #ccc;
+      cursor: pointer;
+      font-size: 1.1rem;
+    }
+    .kv-del:hover { color: var(--danger); }
+
+    .add-btn {
+      margin-top: 6px;
+      padding: 8px 14px;
+      background: none;
+      border: 1.5px dashed var(--border);
+      font-family: var(--mono);
+      font-size: 0.62rem;
+      text-transform: uppercase;
+      color: var(--muted);
+      cursor: pointer;
+      align-self: flex-start;
+    }
+    .add-btn:hover { border-color: var(--ink); color: var(--ink); }
+
+    /* Presets */
+    .preset-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+    .preset-lbl {
+      font-size: 0.6rem;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .preset-btn {
+      padding: 5px 10px;
+      background: var(--white);
+      border: 1px solid var(--border);
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      cursor: pointer;
+    }
+    .preset-btn:hover { background: var(--black); color: #fff; }
+
+    /* Body types */
+    .bt-row {
+      display: flex;
+      border: 1.5px solid var(--border);
+      flex-shrink: 0;
+    }
+    .bt-btn {
+      flex: 1;
+      padding: 9px 3px;
+      background: var(--white);
+      border: none;
+      border-right: 1px solid var(--border);
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      text-transform: uppercase;
+      color: var(--muted);
+      cursor: pointer;
+    }
+    .bt-btn:last-child { border-right: none; }
+    .bt-btn.active { background: var(--black); color: #fff; }
+
+    .bsec {
+      display: none;
+      flex: 1;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .bsec.active { display: flex; }
+    .body-none {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7rem;
+      color: var(--muted);
+      border: 1.5px dashed var(--border);
+      padding: 28px;
+    }
+
+    .code-ed {
+      flex: 1;
+      min-height: 200px;
+      padding: 14px;
+      background: var(--black);
+      color: #a8e08a;
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      line-height: 1.6;
+      border: none;
+      outline: none;
+      resize: none;
+    }
+    .code-ed.plain { color: #ccc; }
+
+    .tool-btn {
+      padding: 5px 10px;
+      background: none;
+      border: 1px solid var(--border);
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      text-transform: uppercase;
+      color: var(--muted);
+      cursor: pointer;
+    }
+    .tool-btn:hover { background: var(--black); color: #fff; }
+
+    /* Auth */
+    .auth-top {
+      display: flex;
+      border: 1.5px solid var(--border);
+    }
+    .auth-lbl {
+      padding: 0 14px;
+      background: var(--bg2);
+      font-size: 0.62rem;
+      text-transform: uppercase;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      border-right: 1.5px solid var(--border);
+    }
+    #authType {
+      flex: 1;
+      border: none;
+      background: transparent;
+      padding: 10px 14px;
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .afields.hidden { display: none; }
+    .frow {
+      display: grid;
+      grid-template-columns: 120px 1fr;
+      border: 1.5px solid var(--border);
+      border-top: none;
+    }
+    .flbl {
+      padding: 10px 14px;
+      background: var(--bg2);
+      font-size: 0.6rem;
+      text-transform: uppercase;
+      color: var(--muted);
+      border-right: 1.5px solid var(--border);
+      display: flex;
+      align-items: center;
+    }
+    .finp, .fsel {
+      padding: 10px 14px;
+      background: transparent;
+      border: none;
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      outline: none;
+      width: 100%;
+    }
+
+    /* Config */
+    .cfg-table {
+      border: 1.5px solid var(--border);
+    }
+    .cfg-row {
+      display: grid;
+      grid-template-columns: 140px 1fr;
+      border-bottom: 1px solid var(--border);
+    }
+    .cfg-row:last-child { border-bottom: none; }
+    .cfg-lbl {
+      padding: 10px 14px;
+      background: var(--bg2);
+      font-size: 0.6rem;
+      text-transform: uppercase;
+      color: var(--muted);
+      border-right: 1px solid var(--border);
+    }
+    .cfg-inp, .cfg-sel {
+      padding: 10px 14px;
+      background: transparent;
+      border: none;
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      outline: none;
+      width: 100%;
+    }
+    .cfg-note {
+      padding: 12px 16px;
+      font-size: 0.65rem;
+      color: var(--muted);
+      border: 1.5px solid var(--border);
+      border-top: none;
+      background: #fdfcfa;
+    }
+
+    /* Modal code */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal.active { display: flex; }
+    .modal-content {
+      background: var(--white);
+      border: 2px solid var(--black);
+      max-width: 650px;
+      width: 90%;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .modal-header {
+      padding: 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .modal-header h3 { font-family: var(--display); font-size: 1.2rem; }
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      cursor: pointer;
+    }
+    .modal-body {
+      padding: 16px;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .modal-body pre {
+      background: var(--black);
+      color: #a8e08a;
+      padding: 16px;
+      overflow-x: auto;
+      font-size: 0.75rem;
+      font-family: var(--mono);
+      white-space: pre-wrap;
+    }
+    .code-lang-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .code-lang {
+      padding: 6px 12px;
+      background: none;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      font-family: var(--mono);
+      font-size: 0.7rem;
+    }
+    .code-lang.active {
+      background: var(--black);
+      color: #fff;
+    }
+
+    /* Response panel */
+    .res-panel {
+      width: 50%;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--white);
+      border-left: 1.5px solid var(--border);
+    }
+
+    #resIdle {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+    }
+    .idle-ico { font-family: var(--display); font-size: 3rem; color: var(--border); }
+    .idle-msg { font-size: 0.7rem; text-transform: uppercase; color: var(--muted); }
+
+    #resLoading {
+      flex: 1;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+    }
+    .prog-track {
+      width: 180px;
+      height: 2px;
+      background: var(--border);
+      overflow: hidden;
+    }
+    .prog-bar {
+      height: 100%;
+      background: var(--black);
+      animation: progSlide 1.3s ease-in-out infinite;
+    }
+    @keyframes progSlide {
+      0% { width: 0%; margin-left: 0%; }
+      50% { width: 55%; margin-left: 22%; }
+      100% { width: 0%; margin-left: 100%; }
+    }
+
+    #resResult {
+      flex: 1;
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .res-meta {
+      padding: 10px 16px;
+      border-bottom: 1.5px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .spill {
+      padding: 5px 12px;
+      font-family: var(--display);
+      font-size: 1rem;
+    }
+    .s2xx { background: var(--accent); color: #fff; }
+    .s4xx { background: #b55e10; color: #fff; }
+    .s5xx, .snet { background: var(--danger); color: #fff; }
+    .rmeta-tag {
+      font-size: 0.65rem;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      padding: 3px 8px;
+    }
+    .copy-btn {
+      margin-left: auto;
+      padding: 4px 12px;
+      background: none;
+      border: 1.5px solid var(--border);
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+    .copy-btn:hover { background: var(--black); color: #fff; }
+
+    .res-tab-nav {
+      display: flex;
+      border-bottom: 1.5px solid var(--border);
+    }
+    .rtab-btn {
+      padding: 8px 18px;
+      background: none;
+      border: none;
+      border-right: 1px solid var(--border);
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: var(--muted);
+      cursor: pointer;
+    }
+    .rtab-btn.active {
+      background: var(--black);
+      color: #fff;
+    }
+
+    .res-content {
+      flex: 1;
+      overflow-y: auto;
+    }
+    .jdisplay {
+      background: var(--black);
+      padding: 16px;
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      line-height: 1.7;
+      white-space: pre-wrap;
+      color: #888;
+    }
+    .jk { color: #88b8e0; }
+    .js { color: #a8e08a; }
+    .jn { color: #e0b888; }
+    .plain-disp {
+      padding: 16px;
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      white-space: pre-wrap;
+    }
+    .err-panel {
+      margin: 16px;
+      padding: 16px;
+      background: #fdf0ef;
+      border-left: 3px solid var(--danger);
+    }
+    .err-title {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: var(--danger);
+      margin-bottom: 8px;
+    }
+
+    .rh-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .rh-table tr {
+      border-bottom: 1px solid var(--border);
+    }
+    .rh-table td {
+      padding: 8px 14px;
+      font-size: 0.72rem;
+    }
+    .rh-table td:first-child {
+      width: 35%;
+      background: var(--bg2);
+      border-right: 1px solid var(--border);
+    }
+
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-thumb { background: var(--border); }
+
+    @media (max-width: 860px) {
+      .workspace { flex-direction: column; }
+      .sidebar { width: 100%; max-height: 200px; }
+      .res-panel { width: 100%; border-left: none; border-top: 1.5px solid var(--border); }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="bmark"><span></span><span></span><span></span><span></span></div>
+      <span class="bname">JDN - API TESTER </span>
+    </div>
+
+    <div class="env-selector" id="envSelector">
+      <button class="env-btn" data-env="dev" onclick="switchEnv('dev')">DEV</button>
+      <button class="env-btn" data-env="staging" onclick="switchEnv('staging')">STAGING</button>
+      <button class="env-btn active" data-env="prod" onclick="switchEnv('prod')">PROD</button>
+    </div>
+
+    <div class="url-row">
+      <select id="methodSel" onchange="updatePreview()">
+        <option>GET</option><option>POST</option><option>PUT</option>
+        <option>PATCH</option><option>DELETE</option><option>HEAD</option><option>OPTIONS</option>
+      </select>
+      <input type="text" id="urlInput" placeholder="https://api.exemple.com/v1/endpoint" oninput="updatePreview()"/>
+      <button class="send-btn" id="sendBtn" onclick="sendRequest()">
+        <span class="send-lbl">ENVOYER</span>
+        <span class="send-arr">→</span>
+        <div class="send-spin"></div>
+      </button>
+    </div>
+
+    <div class="top-actions">
+      <button class="top-btn" onclick="saveCurrentRequest()">Sauvegarder</button>
+      <button class="top-btn" onclick="showCodeModal()">Generer code</button>
+    </div>
+  </header>
+
+  <div class="url-preview">
+    <span class="prev-method" id="prevMethod">GET</span>
+    <span class="prev-url" id="prevUrl">—</span>
+  </div>
+
+  <div class="workspace">
+    <!-- Sidebar historique/collections -->
+    <div class="sidebar">
+      <div class="sidebar-tabs">
+        <button class="sidebar-tab active" data-sidebar="history" onclick="switchSidebar('history')">HISTORIQUE</button>
+        <button class="sidebar-tab" data-sidebar="collections" onclick="switchSidebar('collections')">COLLECTIONS</button>
+      </div>
+      <div class="sidebar-header" id="historyHeader">
+        <input type="text" id="historySearch" placeholder="Rechercher..." oninput="filterHistory()">
+      </div>
+      <div class="sidebar-header" id="collectionHeader" style="display:none">
+        <input type="text" id="newCollectionName" placeholder="Nom collection">
+        <button class="tool-btn" onclick="createCollection()" style="padding:4px 8px">+</button>
+      </div>
+      <div class="sidebar-list" id="historyList"></div>
+      <div class="sidebar-list" id="collectionsList" style="display:none"></div>
+    </div>
+
+    <!-- Panneau Requête (identique à l'original) -->
+    <div class="req-panel">
+      <div class="tab-nav">
+        <button class="tab-btn active" data-tab="params" onclick="switchTab('params')">PARAMS<span class="tbadge" id="bdgParams"></span></button>
+        <button class="tab-btn" data-tab="headers" onclick="switchTab('headers')">HEADERS<span class="tbadge" id="bdgHeaders"></span></button>
+        <button class="tab-btn" data-tab="body" onclick="switchTab('body')">BODY<span class="tbadge" id="bdgBody"></span></button>
+        <button class="tab-btn" data-tab="auth" onclick="switchTab('auth')">AUTH<span class="tbadge" id="bdgAuth"></span></button>
+        <button class="tab-btn" data-tab="config" onclick="switchTab('config')">CONFIG</button>
+      </div>
+
+      <div class="tab-pane active" id="tab-params">
+        <div class="ti">
+          <div class="kv-table" id="paramsTable">
+            <div class="kv-head"><span></span><span>Clé</span><span>Valeur</span><span></span></div>
+          </div>
+          <button class="add-btn" onclick="addKV('params')">+ Paramètre</button>
+        </div>
+      </div>
+
+      <div class="tab-pane" id="tab-headers">
+        <div class="ti">
+          <div class="preset-row">
+            <span class="preset-lbl">Raccourcis :</span>
+            <button class="preset-btn" onclick="addKV('headers','Accept','application/json')">Accept: JSON</button>
+            <button class="preset-btn" onclick="addKV('headers','Content-Type','application/json')">Content-Type: JSON</button>
+            <button class="preset-btn" onclick="addKV('headers','Accept','*/*')">Accept: */*</button>
+          </div>
+          <div class="kv-table" id="headersTable">
+            <div class="kv-head"><span></span><span>Header</span><span>Valeur</span><span></span></div>
+          </div>
+          <button class="add-btn" onclick="addKV('headers')">+ Header</button>
+        </div>
+      </div>
+
+      <div class="tab-pane" id="tab-body">
+        <div class="ti">
+          <div class="bt-row">
+            <button class="bt-btn active" data-bt="none" onclick="switchBody('none')">NONE</button>
+            <button class="bt-btn" data-bt="json" onclick="switchBody('json')">JSON</button>
+            <button class="bt-btn" data-bt="form" onclick="switchBody('form')">FORM DATA</button>
+            <button class="bt-btn" data-bt="urlencoded" onclick="switchBody('urlencoded')">URL-ENC</button>
+            <button class="bt-btn" data-bt="text" onclick="switchBody('text')">TEXT</button>
+          </div>
+
+          <div class="bsec active" id="bsNone"><div class="body-none">Aucun corps de requête</div></div>
+          <div class="bsec" id="bsJson">
+            <div class="body-tb" style="display:flex;gap:8px">
+              <button class="tool-btn" onclick="formatJSON()">Formater JSON</button>
+              <button class="tool-btn" onclick="clearEditor('jsonBody')">Vider</button>
+            </div>
+            <textarea class="code-ed" id="jsonBody" placeholder='{\n  "key": "value"\n}'></textarea>
+          </div>
+          <div class="bsec" id="bsForm">
+            <div class="kv-table" id="formTable"><div class="kv-head"><span></span><span>Champ</span><span>Valeur</span><span></span></div></div>
+            <button class="add-btn" onclick="addKV('form')">+ Champ</button>
+          </div>
+          <div class="bsec" id="bsUrlencoded">
+            <div class="kv-table" id="urlencodedTable"><div class="kv-head"><span></span><span>Clé</span><span>Valeur</span><span></span></div></div>
+            <button class="add-btn" onclick="addKV('urlencoded')">+ Champ</button>
+          </div>
+          <div class="bsec" id="bsText">
+            <textarea class="code-ed plain" id="textBody" placeholder="Texte brut…"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-pane" id="tab-auth">
+        <div class="ti">
+          <div class="auth-top"><span class="auth-lbl">Type</span><select id="authType" onchange="switchAuth()"><option value="none">Aucune authentification</option><option value="bearer">Bearer Token</option><option value="basic">Basic Auth</option><option value="apikey">API Key</option></select></div>
+          <div class="afields hidden" id="afBearer"><div class="frow"><span class="flbl">Token</span><input type="text" class="finp" id="bearerToken" placeholder="eyJhbGciOiJIUzI1NiIs…"/></div></div>
+          <div class="afields hidden" id="afBasic"><div class="frow"><span class="flbl">Identifiant</span><input type="text" class="finp" id="basicUser" placeholder="username"/></div><div class="frow"><span class="flbl">Mot de passe</span><input type="password" class="finp" id="basicPass" placeholder="••••••••"/></div></div>
+          <div class="afields hidden" id="afApiKey"><div class="frow"><span class="flbl">Nom</span><input type="text" class="finp" id="apiKeyName" value="X-API-Key"/></div><div class="frow"><span class="flbl">Valeur</span><input type="text" class="finp" id="apiKeyVal" placeholder="votre-clé-api"/></div><div class="frow"><span class="flbl">Emplacement</span><select class="fsel" id="apiKeyIn"><option value="header">Header</option><option value="query">Query param</option></select></div></div>
+        </div>
+      </div>
+
+      <div class="tab-pane" id="tab-config">
+        <div class="ti">
+          <div class="cfg-table">
+            <div class="cfg-row"><span class="cfg-lbl">Mode</span><select class="cfg-sel" id="cfgMode"><option value="cors">cors</option><option value="no-cors">no-cors</option><option value="same-origin">same-origin</option></select></div>
+            <div class="cfg-row"><span class="cfg-lbl">Credentials</span><select class="cfg-sel" id="cfgCred"><option value="same-origin">same-origin</option><option value="omit">omit</option><option value="include">include</option></select></div>
+            <div class="cfg-row"><span class="cfg-lbl">Redirect</span><select class="cfg-sel" id="cfgRedirect"><option value="follow">follow</option><option value="error">error</option><option value="manual">manual</option></select></div>
+            <div class="cfg-row"><span class="cfg-lbl">Timeout (ms)</span><input type="number" class="cfg-inp" id="cfgTimeout" value="30000" step="1000"/></div>
+            <div class="cfg-row"><span class="cfg-lbl">Content-Type</span><input type="text" class="cfg-inp" id="cfgCT" placeholder="auto (selon body)"/></div>
+          </div>
+          <div class="cfg-note"><strong>Raccourci :</strong> Ctrl+Enter pour envoyer | Ctrl+S pour sauvegarder</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Panneau Réponse (identique à l'original) -->
+    <div class="res-panel">
+      <div id="resIdle"><div class="idle-ico">↗</div><div class="idle-msg">Aucune requête envoyée</div><div class="idle-msg" style="font-size:0.6rem;margin-top:8px">Ctrl+Enter pour envoyer</div></div>
+      <div id="resLoading"><div class="load-msg">Envoi en cours…</div><div class="prog-track"><div class="prog-bar"></div></div></div>
+      <div id="resResult">
+        <div class="res-meta"><span class="spill" id="statusPill">—</span><span class="rmeta-tag" id="resTime">—</span><span class="rmeta-tag" id="resSize">—</span><button class="copy-btn" onclick="copyResponse()">Copier</button></div>
+        <div class="res-tab-nav"><button class="rtab-btn active" data-rt="body" onclick="switchResTab('body')">BODY</button><button class="rtab-btn" data-rt="headers" onclick="switchResTab('headers')">HEADERS</button></div>
+        <div class="res-content"><div id="rtBody"></div><div id="rtHeaders" style="display:none"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal génération code -->
+  <div class="modal" id="codeModal">
+    <div class="modal-content">
+      <div class="modal-header"><h3>Generer le code</h3><button class="modal-close" onclick="closeModal()">×</button></div>
+      <div class="modal-body">
+        <div class="code-lang-tabs"><button class="code-lang active" data-lang="curl" onclick="switchCodeLang('curl')">cURL</button><button class="code-lang" data-lang="fetch" onclick="switchCodeLang('fetch')">Fetch API</button><button class="code-lang" data-lang="axios" onclick="switchCodeLang('axios')">Axios</button></div>
+        <pre id="codeOutput"></pre>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ==================== ÉTAT GLOBAL ====================
+    let bodyType = 'none';
+    let lastResponseText = '';
+    let currentEnv = 'prod';
+    let history = [];
+    let collections = [];
+    let currentCodeLang = 'curl';
+
+    const STORAGE_KEYS = {
+      HISTORY: 'api_tester_history',
+      COLLECTIONS: 'api_tester_collections',
+      ENV: 'api_tester_env',
+      LAST_REQUEST: 'api_tester_last_request'
+    };
+
+    const KV_TABLES = {
+      params: 'paramsTable',
+      headers: 'headersTable',
+      form: 'formTable',
+      urlencoded: 'urlencodedTable'
+    };
+
+    // ==================== INITIALISATION ====================
+    function loadStorage() {
+      const savedHistory = localStorage.getItem(STORAGE_KEYS.HISTORY);
+      if (savedHistory) history = JSON.parse(savedHistory);
+      
+      const savedCollections = localStorage.getItem(STORAGE_KEYS.COLLECTIONS);
+      if (savedCollections) collections = JSON.parse(savedCollections);
+      
+      const savedEnv = localStorage.getItem(STORAGE_KEYS.ENV);
+      if (savedEnv) switchEnv(savedEnv);
+      
+      const lastRequest = localStorage.getItem(STORAGE_KEYS.LAST_REQUEST);
+      if (lastRequest) {
+        const req = JSON.parse(lastRequest);
+        document.getElementById('methodSel').value = req.method;
+        document.getElementById('urlInput').value = req.url;
+        if (req.params) req.params.forEach(p => addKV('params', p.key, p.value));
+        if (req.headers) req.headers.forEach(h => addKV('headers', h.key, h.value));
+        if (req.bodyType) switchBody(req.bodyType);
+        updatePreview();
+      }
+      
+      renderHistory();
+      renderCollections();
+    }
+
+    function saveCurrentRequest() {
+      const request = {
+        method: document.getElementById('methodSel').value,
+        url: document.getElementById('urlInput').value,
+        params: getKV('params'),
+        headers: getKV('headers'),
+        bodyType: bodyType,
+        timestamp: new Date().toISOString()
+      };
+      localStorage.setItem(STORAGE_KEYS.LAST_REQUEST, JSON.stringify(request));
+      
+      const collectionName = prompt('Nom de la collection pour sauvegarder cette requete:', 'Mes requetes');
+      if (collectionName) {
+        let collection = collections.find(c => c.name === collectionName);
+        if (!collection) {
+          collection = { id: Date.now(), name: collectionName, requests: [] };
+          collections.push(collection);
+        }
+        collection.requests.push({
+          id: Date.now(),
+          name: request.method + ' ' + request.url.substring(0, 50),
+          request: request
+        });
+        localStorage.setItem(STORAGE_KEYS.COLLECTIONS, JSON.stringify(collections));
+        renderCollections();
+        alert('Requete sauvegardee dans la collection "' + collectionName + '"');
+      }
+    }
+
+    function addToHistory(method, url, status, elapsed) {
+      history.unshift({
+        id: Date.now(),
+        method: method,
+        url: url,
+        status: status,
+        elapsed: elapsed,
+        timestamp: new Date().toISOString()
+      });
+      if (history.length > 50) history = history.slice(0, 50);
+      localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(history));
+      renderHistory();
+    }
+
+    // ==================== ENVIRONNEMENTS ====================
+    function switchEnv(env) {
+      currentEnv = env;
+      document.querySelectorAll('.env-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.env === env);
+      });
+      localStorage.setItem(STORAGE_KEYS.ENV, env);
+      
+      // Afficher l'environnement actif dans la console
+      console.log('Environnement actif:', env);
+      
+      // Ici on pourrait charger des variables d'environnement (préfixes d'URL, etc.)
+      const envUrls = {
+        dev: 'http://localhost:8000',
+        staging: 'https://staging-api.exemple.com',
+        prod: 'https://api.exemple.com'
+      };
+      const currentUrl = document.getElementById('urlInput').value;
+      if (currentUrl === '' || currentUrl === envUrls.prod || currentUrl === envUrls.staging || currentUrl === envUrls.dev) {
+        document.getElementById('urlInput').value = envUrls[env];
+        updatePreview();
+      }
+    }
+
+    // ==================== COLLECTIONS ====================
+    function createCollection() {
+      const name = document.getElementById('newCollectionName').value.trim();
+      if (!name) { alert('Nom de collection requis'); return; }
+      collections.push({ id: Date.now(), name: name, requests: [] });
+      localStorage.setItem(STORAGE_KEYS.COLLECTIONS, JSON.stringify(collections));
+      renderCollections();
+      document.getElementById('newCollectionName').value = '';
+    }
+
+    function loadCollectionRequest(collectionId, requestId) {
+      const collection = collections.find(c => c.id === collectionId);
+      const request = collection?.requests.find(r => r.id === requestId);
+      if (request) {
+        document.getElementById('methodSel').value = request.request.method;
+        document.getElementById('urlInput').value = request.request.url;
+        clearTable('params');
+        if (request.request.params) request.request.params.forEach(p => addKV('params', p.key, p.value));
+        clearTable('headers');
+        if (request.request.headers) request.request.headers.forEach(h => addKV('headers', h.key, h.value));
+        if (request.request.bodyType) switchBody(request.request.bodyType);
+        updatePreview();
+      }
+    }
+
+    function deleteCollection(collectionId) {
+      if (confirm('Supprimer cette collection ?')) {
+        collections = collections.filter(c => c.id !== collectionId);
+        localStorage.setItem(STORAGE_KEYS.COLLECTIONS, JSON.stringify(collections));
+        renderCollections();
+      }
+    }
+
+    function deleteCollectionRequest(collectionId, requestId) {
+      const collection = collections.find(c => c.id === collectionId);
+      if (collection) {
+        collection.requests = collection.requests.filter(r => r.id !== requestId);
+        localStorage.setItem(STORAGE_KEYS.COLLECTIONS, JSON.stringify(collections));
+        renderCollections();
+      }
+    }
+
+    // ==================== CODE GENERATION ====================
+    function generateCurl() {
+      const method = document.getElementById('methodSel').value;
+      const url = buildFinalURL();
+      const headers = buildHeaders();
+      const body = buildBody();
+      
+      let curl = `curl -X ${method} "${url}"`;
+      for (const [key, value] of Object.entries(headers)) {
+        curl += ` \\\n  -H "${key}: ${value}"`;
+      }
+      if (body && !['GET', 'HEAD'].includes(method)) {
+        let bodyStr = typeof body === 'string' ? body : JSON.stringify(body);
+        curl += ` \\\n  -d '${bodyStr.replace(/'/g, "'\\''")}'`;
+      }
+      return curl;
+    }
+
+    function generateFetch() {
+      const method = document.getElementById('methodSel').value;
+      const url = buildFinalURL();
+      const headers = buildHeaders();
+      const body = buildBody();
+      
+      let fetchCode = `fetch("${url}", {\n  method: "${method}",\n  headers: ${JSON.stringify(headers, null, 2)}`;
+      if (body && !['GET', 'HEAD'].includes(method)) {
+        let bodyStr = typeof body === 'string' ? body : JSON.stringify(body);
+        fetchCode += `,\n  body: ${JSON.stringify(bodyStr)}`;
+      }
+      fetchCode += `\n});`;
+      return fetchCode;
+    }
+
+    function generateAxios() {
+      const method = document.getElementById('methodSel').value.toLowerCase();
+      const url = buildFinalURL();
+      const headers = buildHeaders();
+      const body = buildBody();
+      
+      let axiosCode = `axios.${method}("${url}", {\n  headers: ${JSON.stringify(headers, null, 2)}`;
+      if (body && !['GET', 'HEAD'].includes(method.toUpperCase())) {
+        axiosCode += `,\n  data: ${JSON.stringify(body)}`;
+      }
+      axiosCode += `\n});`;
+      return axiosCode;
+    }
+
+    function showCodeModal() {
+      document.getElementById('codeModal').classList.add('active');
+      updateCodeOutput();
+    }
+
+    function closeModal() {
+      document.getElementById('codeModal').classList.remove('active');
+    }
+
+    function switchCodeLang(lang) {
+      currentCodeLang = lang;
+      document.querySelectorAll('.code-lang').forEach(btn => btn.classList.toggle('active', btn.dataset.lang === lang));
+      updateCodeOutput();
+    }
+
+    function updateCodeOutput() {
+      let code = '';
+      switch(currentCodeLang) {
+        case 'curl': code = generateCurl(); break;
+        case 'fetch': code = generateFetch(); break;
+        case 'axios': code = generateAxios(); break;
+      }
+      document.getElementById('codeOutput').textContent = code;
+    }
+
+    // ==================== RENDU (HISTORIQUE + COLLECTIONS) ====================
+    function renderHistory() {
+      const container = document.getElementById('historyList');
+      const searchTerm = document.getElementById('historySearch')?.value.toLowerCase() || '';
+      const filtered = history.filter(h => h.url.toLowerCase().includes(searchTerm));
+      container.innerHTML = filtered.map(h => `
+        <div class="history-item" onclick="loadHistoryRequest(${h.id})">
+          <div><span class="history-method method-${h.method}">${h.method}</span><span style="font-size:0.6rem;color:var(--muted)">${new Date(h.timestamp).toLocaleTimeString()}</span></div>
+          <div class="history-url">${h.url.substring(0, 60)}${h.url.length > 60 ? '...' : ''}</div>
+          <div style="font-size:0.55rem;margin-top:4px">${h.status} • ${h.elapsed}ms</div>
+        </div>
+      `).join('');
+    }
+
+    function filterHistory() { renderHistory(); }
+
+    function loadHistoryRequest(id) {
+      const item = history.find(h => h.id === id);
+      if (item) {
+        document.getElementById('methodSel').value = item.method;
+        document.getElementById('urlInput').value = item.url;
+        updatePreview();
+      }
+    }
+
+    function renderCollections() {
+      const container = document.getElementById('collectionsList');
+      container.innerHTML = collections.map(c => `
+        <div class="collection-item">
+          <div class="collection-name">📁 ${c.name}</div>
+          <div style="font-size:0.55rem;color:var(--muted);margin:4px 0">${c.requests.length} requete(s)</div>
+          <div style="display:flex;gap:8px;margin-bottom:8px">
+            <span style="font-size:0.55rem;color:var(--danger);cursor:pointer" onclick="deleteCollection(${c.id})">supprimer</span>
+          </div>
+          ${c.requests.map(r => `
+            <div class="collection-request" onclick="loadCollectionRequest(${c.id}, ${r.id})">
+              📄 ${r.name}
+              <span style="float:right;font-size:0.5rem;color:var(--danger)" onclick="event.stopPropagation();deleteCollectionRequest(${c.id}, ${r.id})">✕</span>
+            </div>
+          `).join('')}
+        </div>
+      `).join('');
+    }
+
+    // ==================== FONCTIONS EXISTANTES (inchangées) ====================
+    function switchTab(name) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+      document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.id === 'tab-' + name));
+    }
+
+    function switchResTab(name) {
+      document.querySelectorAll('.rtab-btn').forEach(b => b.classList.toggle('active', b.dataset.rt === name));
+      document.getElementById('rtBody').style.display = name === 'body' ? '' : 'none';
+      document.getElementById('rtHeaders').style.display = name === 'headers' ? '' : 'none';
+    }
+
+    function switchSidebar(type) {
+      document.querySelectorAll('.sidebar-tab').forEach(b => b.classList.toggle('active', b.dataset.sidebar === type));
+      document.getElementById('historyHeader').style.display = type === 'history' ? 'flex' : 'none';
+      document.getElementById('collectionHeader').style.display = type === 'collections' ? 'flex' : 'none';
+      document.getElementById('historyList').style.display = type === 'history' ? 'block' : 'none';
+      document.getElementById('collectionsList').style.display = type === 'collections' ? 'block' : 'none';
+    }
+
+    function updatePreview() {
+      document.getElementById('prevMethod').textContent = document.getElementById('methodSel').value;
+      try {
+        const url = buildFinalURL();
+        document.getElementById('prevUrl').textContent = url || '—';
+      } catch {
+        document.getElementById('prevUrl').textContent = document.getElementById('urlInput').value || '—';
+      }
+    }
+
+    function addKV(which, key = '', value = '', enabled = true) {
+      const tableEl = document.getElementById(KV_TABLES[which]);
+      if (!tableEl) return;
+      const row = document.createElement('div');
+      row.className = 'kv-row';
+      row.innerHTML = `
+        <div class="kv-chk"><input type="checkbox" ${enabled ? 'checked' : ''} onchange="refreshBadge('${which}')"/></div>
+        <input type="text" class="kv-inp key-inp" placeholder="${which === 'headers' ? 'Header-Name' : 'cle'}" value="${escapeHtml(key)}" oninput="refreshBadge('${which}')"/>
+        <input type="text" class="kv-inp kv-val" placeholder="valeur" value="${escapeHtml(value)}"/>
+        <button class="kv-del" onclick="this.closest('.kv-row').remove();refreshBadge('${which}')">×</button>
+      `;
+      tableEl.appendChild(row);
+      refreshBadge(which);
+    }
+
+    function getKV(which) {
+      const tableEl = document.getElementById(KV_TABLES[which]);
+      if (!tableEl) return [];
+      return [...tableEl.querySelectorAll('.kv-row')].reduce((acc, row) => {
+        const enabled = row.querySelector('input[type="checkbox"]').checked;
+        const key = row.querySelector('.key-inp').value.trim();
+        const value = row.querySelector('.kv-val').value;
+        if (enabled && key) acc.push({ key, value });
+        return acc;
+      }, []);
+    }
+
+    function clearTable(which) {
+      const table = document.getElementById(KV_TABLES[which]);
+      if (table) {
+        while (table.children.length > 1) table.removeChild(table.lastChild);
+      }
+    }
+
+    function refreshBadge(which) {
+      const count = getKV(which).length;
+      const badgeId = { params: 'bdgParams', headers: 'bdgHeaders', form: 'bdgBody', urlencoded: 'bdgBody' }[which];
+      if (badgeId && document.getElementById(badgeId)) {
+        if (which !== 'form' && which !== 'urlencoded') document.getElementById(badgeId).textContent = count > 0 ? `(${count})` : '';
+      }
+      if (which === 'params') updatePreview();
+    }
+
+    function switchBody(type) {
+      bodyType = type;
+      document.querySelectorAll('.bt-btn').forEach(b => b.classList.toggle('active', b.dataset.bt === type));
+      const map = { none: 'bsNone', json: 'bsJson', form: 'bsForm', urlencoded: 'bsUrlencoded', text: 'bsText' };
+      Object.entries(map).forEach(([t, id]) => {
+        const el = document.getElementById(id);
+        if (el) el.classList.toggle('active', t === type);
+      });
+      document.getElementById('bdgBody').textContent = type !== 'none' ? `[${type.toUpperCase()}]` : '';
+    }
+
+    function formatJSON() {
+      const ta = document.getElementById('jsonBody');
+      try {
+        ta.value = JSON.stringify(JSON.parse(ta.value), null, 2);
+      } catch (e) {
+        alert('JSON invalide');
+      }
+    }
+
+    function clearEditor(id) {
+      document.getElementById(id).value = '';
+    }
+
+    function switchAuth() {
+      const type = document.getElementById('authType').value;
+      document.getElementById('afBearer').classList.toggle('hidden', type !== 'bearer');
+      document.getElementById('afBasic').classList.toggle('hidden', type !== 'basic');
+      document.getElementById('afApiKey').classList.toggle('hidden', type !== 'apikey');
+      document.getElementById('bdgAuth').textContent = type !== 'none' ? `[${type.toUpperCase()}]` : '';
+    }
+
+    function buildFinalURL() {
+      let url = document.getElementById('urlInput').value.trim();
+      if (!url) return '';
+      const params = [...getKV('params')];
+      const authType = document.getElementById('authType').value;
+      if (authType === 'apikey' && document.getElementById('apiKeyIn').value === 'query') {
+        const k = document.getElementById('apiKeyName').value.trim();
+        const v = document.getElementById('apiKeyVal').value.trim();
+        if (k && v) params.push({ key: k, value: v });
+      }
+      if (params.length) {
+        const qs = params.map(p => `${encodeURIComponent(p.key)}=${encodeURIComponent(p.value)}`).join('&');
+        url += (url.includes('?') ? '&' : '?') + qs;
+      }
+      return url;
+    }
+
+    function buildHeaders() {
+      const h = {};
+      getKV('headers').forEach(({ key, value }) => { h[key] = value; });
+      const authType = document.getElementById('authType').value;
+      if (authType === 'bearer') {
+        const token = document.getElementById('bearerToken').value.trim();
+        if (token) h['Authorization'] = `Bearer ${token}`;
+      } else if (authType === 'basic') {
+        const u = document.getElementById('basicUser').value;
+        const p = document.getElementById('basicPass').value;
+        h['Authorization'] = 'Basic ' + btoa(`${u}:${p}`);
+      } else if (authType === 'apikey' && document.getElementById('apiKeyIn').value === 'header') {
+        const k = document.getElementById('apiKeyName').value.trim();
+        const v = document.getElementById('apiKeyVal').value.trim();
+        if (k && v) h[k] = v;
+      }
+      const ctOverride = document.getElementById('cfgCT').value.trim();
+      if (ctOverride) h['Content-Type'] = ctOverride;
+      else if (!h['Content-Type'] && !h['content-type']) {
+        if (bodyType === 'json') h['Content-Type'] = 'application/json';
+        if (bodyType === 'urlencoded') h['Content-Type'] = 'application/x-www-form-urlencoded';
+      }
+      return h;
+    }
+
+    function buildBody() {
+      const method = document.getElementById('methodSel').value;
+      if (['GET', 'HEAD'].includes(method)) return null;
+      switch (bodyType) {
+        case 'json': return document.getElementById('jsonBody').value.trim() || null;
+        case 'form': const fd = new FormData(); getKV('form').forEach(({ key, value }) => fd.append(key, value)); return fd;
+        case 'urlencoded': return getKV('urlencoded').map(({ key, value }) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`).join('&') || null;
+        case 'text': return document.getElementById('textBody').value || null;
+        default: return null;
+      }
+    }
+
+    async function sendRequest() {
+      const url = buildFinalURL();
+      if (!url) { alert('Veuillez saisir une URL.'); return; }
+      const timeout = parseInt(document.getElementById('cfgTimeout').value) || 30000;
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeout);
+      setLoading(true);
+      const t0 = performance.now();
+      try {
+        const opts = {
+          method: document.getElementById('methodSel').value,
+          headers: buildHeaders(),
+          mode: document.getElementById('cfgMode').value,
+          credentials: document.getElementById('cfgCred').value,
+          redirect: document.getElementById('cfgRedirect').value,
+          signal: controller.signal
+        };
+        const body = buildBody();
+        if (body) opts.body = body;
+        const resp = await fetch(url, opts);
+        clearTimeout(timer);
+        const elapsed = Math.round(performance.now() - t0);
+        const bodyText = await resp.text();
+        lastResponseText = bodyText;
+        renderResult(resp, bodyText, elapsed);
+        addToHistory(opts.method, url, resp.status, elapsed);
+      } catch (err) {
+        clearTimeout(timer);
+        renderError(err, Math.round(performance.now() - t0));
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    function setLoading(v) {
+      const btn = document.getElementById('sendBtn');
+      btn.disabled = v;
+      btn.classList.toggle('loading', v);
+      document.getElementById('resIdle').style.display = v ? 'none' : 'none';
+      document.getElementById('resLoading').style.display = v ? 'flex' : 'none';
+      if (!v) document.getElementById('resResult').style.display = 'flex';
+      else document.getElementById('resResult').style.display = 'none';
+    }
+
+    function renderResult(resp, bodyText, elapsed) {
+      document.getElementById('resLoading').style.display = 'none';
+      document.getElementById('resResult').style.display = 'flex';
+      const code = resp.status;
+      const pill = document.getElementById('statusPill');
+      pill.textContent = `${code} ${resp.statusText}`;
+      pill.className = 'spill ' + (code >= 500 ? 's5xx' : code >= 400 ? 's4xx' : 's2xx');
+      document.getElementById('resTime').textContent = `${elapsed} ms`;
+      document.getElementById('resSize').textContent = formatSize(new Blob([bodyText]).size);
+      const bodyEl = document.getElementById('rtBody');
+      bodyEl.innerHTML = '';
+      try {
+        const json = JSON.parse(bodyText);
+        const d = document.createElement('div');
+        d.className = 'jdisplay';
+        d.innerHTML = highlightJSON(json);
+        bodyEl.appendChild(d);
+      } catch {
+        const d = document.createElement('div');
+        d.className = 'plain-disp';
+        d.textContent = bodyText || '(reponse vide)';
+        bodyEl.appendChild(d);
+      }
+      const hEl = document.getElementById('rtHeaders');
+      hEl.innerHTML = '';
+      const tbl = document.createElement('table');
+      tbl.className = 'rh-table';
+      resp.headers.forEach((v, k) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${escapeHtml(k)}</td><td>${escapeHtml(v)}</td>`;
+        tbl.appendChild(tr);
+      });
+      hEl.appendChild(tbl);
+      switchResTab('body');
+    }
+
+    function renderError(err, elapsed) {
+      document.getElementById('resLoading').style.display = 'none';
+      document.getElementById('resResult').style.display = 'flex';
+      document.getElementById('statusPill').textContent = err.name === 'AbortError' ? 'TIMEOUT' : 'ERREUR RESEAU';
+      document.getElementById('statusPill').className = 'spill snet';
+      document.getElementById('resTime').textContent = `${elapsed} ms`;
+      document.getElementById('resSize').textContent = '—';
+      document.getElementById('rtBody').innerHTML = `<div class="err-panel"><div class="err-title">⚠ ${err.name === 'AbortError' ? 'Timeout depasse' : 'Erreur reseau'}</div><div class="err-body">${err.message}</div></div>`;
+    }
+
+    function highlightJSON(obj) {
+      return JSON.stringify(obj, null, 2)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/("(\\u[\da-fA-F]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, m => {
+          let c = 'jn';
+          if (/^"/.test(m)) c = /:$/.test(m) ? 'jk' : 'js';
+          return `<span class="${c}">${m}</span>`;
+        });
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function formatSize(bytes) {
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+      return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+    }
+
+    function copyResponse() {
+      if (!lastResponseText) return;
+      navigator.clipboard.writeText(lastResponseText).then(() => {
+        const btn = document.getElementById('copyBtn');
+        const old = btn.textContent;
+        btn.textContent = 'Copie !';
+        setTimeout(() => btn.textContent = old, 1500);
+      });
+    }
+
+    // Raccourcis clavier
+    document.addEventListener('keydown', e => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') sendRequest();
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveCurrentRequest(); }
+    });
+
+    // Initialisation
+    addKV('headers', 'Accept', 'application/json', true);
+    document.getElementById('jsonBody').value = '{\n  \n}';
+    loadStorage();
+    updatePreview();
+  </script>
+</body>
+</html>
